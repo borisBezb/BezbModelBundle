@@ -1,0 +1,15 @@
+parameters:
+    model.factory.class: Bezb\ModelBundle\Component\ModelFactory
+services:
+    model.factory:
+        class: Bezb\ModelBundle\Component\ModelFactory
+        arguments:
+            - "@doctrine.orm.entity_manager"
+            - "@service_container"
+            - "@event_dispatcher"
+            - "@annotation_reader"
+            - "@model.cache.file_cache"
+
+    model.cache.file_cache:
+        class: Bezb\ModelBundle\Cache\FileCache
+        arguments: ["%kernel.cache_dir%/models", "%kernel.environment%"]

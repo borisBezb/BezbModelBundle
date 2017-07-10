@@ -1,0 +1,24 @@
+{
+    "name": "bezb/model-bundle",
+    "type": "symfony-bundle",
+    "authors": [
+        {
+            "name": "Boris Bezborodov",
+            "email": "wc3inside@gmail.com",
+            "role": "Developer"
+        },
+        {
+            "name": "Sergey Baldino",
+            "email": "sergey.baldino@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "Bezb\\ModelBundle\\": "" }
+    },
+    "require": {
+        "php": ">=7.0",
+        "symfony/symfony": "~2.4|~3.0"
+    },
+    "minimum-stability": "dev"
+}
