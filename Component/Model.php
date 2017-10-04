@@ -99,6 +99,14 @@ abstract class Model implements ModelInterface
 		return $this->modelName;
 	}
 
+    /**
+     * @return EntityManager
+     */
+    public function getEm()
+    {
+        return $this->em;
+    }
+
 	/**
 	 * @param $repository
 	 * @return mixed|void
