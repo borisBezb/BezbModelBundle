@@ -4,6 +4,10 @@ namespace Bezb\ModelBundle\Component;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
+/**
+ * Interface ModelFactoryInterface
+ * @package Bezb\ModelBundle\Component
+ */
 interface ModelFactoryInterface
 {
 	/**
@@ -12,18 +16,17 @@ interface ModelFactoryInterface
 	 */
 	public function create($entityClass);
 
-	/**
-	 * @param string $name
-	 * @param Behavior $behavior
-	 */
-	public function addBehavior($name, Behavior $behavior);
+    /**
+     * @param $behaviorClass
+     * @return mixed
+     */
+	public function addBehavior(BehaviorInterface $behaviorClass);
 
-	/**
-	 * @param string $modelName
-	 * @param string $name
-	 * @param string $serviceId
-	 */
-	public function addScenario($modelName, $name, $serviceId);
+    /**
+     * @param $scenarioClass
+     * @return mixed
+     */
+	public function addScenario($scenarioClass);
 
     /**
      * @param $modelName

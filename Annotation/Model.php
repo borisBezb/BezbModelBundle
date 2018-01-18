@@ -35,7 +35,7 @@ class Model
         $properties = get_object_vars($this);
         foreach ($properties as $key => $value) {
             if (isset($data[$key])) {
-                $this->$key = $data[$key];
+                $this->{$key} = $data[$key];
             }
         }
     }

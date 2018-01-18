@@ -2,14 +2,40 @@
 
 namespace Bezb\ModelBundle\Component;
 
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-
-abstract class ModelSubscriber implements EventSubscriberInterface
+/**
+ * Class ModelSubscriber
+ * @package Bezb\ModelBundle\Component
+ */
+abstract class ModelSubscriber implements ModelSubscriberInterface
 {
-	/**
+    /**
+     * @var string
+     */
+    protected $name;
+
+    /**
 	 * @var string
 	 */
-	static protected $modelName;
+    protected $modelName;
+
+    /**
+     * @param $name
+     * @return $this
+     */
+    public function setName($name)
+    {
+        $this->name = $name;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getName()
+    {
+        return $this->name;
+    }
 
 	/**
 	 * @param $modelName
@@ -17,7 +43,7 @@ abstract class ModelSubscriber implements EventSubscriberInterface
 	 */
 	public function setModelName($modelName) 
 	{
-		static::$modelName = $modelName;
+		$this->modelName = $modelName;
 
 		return $this;
 	}
@@ -27,47 +53,7 @@ abstract class ModelSubscriber implements EventSubscriberInterface
 	 */
 	public function getModelName() 
 	{
-		return static::$modelName;
-	}
-
-	/**
-	 * @param ModelEvent $event
-	 */
-	public function onBeforeSave(ModelEvent $event) 
-	{
-
-	}
-
-	/**
-	 * @param ModelEvent $event
-	 */
-	public function onAfterSave(ModelEvent $event) 
-	{
-
-	}
-
-	/**
-	 * @param ModelEvent $event
-	 */
-	public function onAfterFind(ModelEvent $event) 
-	{
-
-	}
-
-	/**
-	 * @param ModelEvent $event
-	 */
-	public function onBeforeDelete(ModelEvent $event) 
-	{
-
-	}
-
-	/**
-	 * @param ModelEvent $event
-	 */
-	public function onAfterDelete(ModelEvent $event) 
-	{
-
+		return $this->modelName;
 	}
 }
 

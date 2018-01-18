@@ -2,25 +2,30 @@
 
 namespace Bezb\ModelBundle\Component;
 
-use Doctrine\Common\Annotations\Reader;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\Mapping\MappingException;
-use Doctrine\Common\Persistence\Mapping\MappingException as CommonMappingException;
 use Bezb\ModelBundle\Annotation;
 use Bezb\ModelBundle\Cache\AnnotationCacheInterface;
-use Symfony\Component\DependencyInjection\Container;
+use Bezb\ModelBundle\Exception\{ RuntimeException, ModelMappingException };
+use Doctrine\Common\Annotations\Reader;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\MappingException;
+use Doctrine\Common\Persistence\Mapping\MappingException as CommonMappingException;
+use Psr\Container\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Bezb\ModelBundle\Exception\ModelMappingException;
+use Symfony\Component\HttpFoundation\RequestStack;
 
+/**
+ * Class ModelFactory
+ * @package Bezb\ModelBundle\Component
+ */
 class ModelFactory implements ModelFactoryInterface
 {
 	/**
-	 * @var Container
+	 * @var ContainerInterface
 	 */
 	protected $container;
 
 	/**
-	 * @var EntityManager
+	 * @var EntityManagerInterface
 	 */
 	protected $em;
 
@@ -55,25 +60,25 @@ class ModelFactory implements ModelFactoryInterface
     protected $behaviors = [];
 
     /**
-     * ModelFactory constructor.
-     * @param EntityManager $em
-     * @param Container $container
-     * @param EventDispatcherInterface $eventDispatcher
-     * @param Reader $annotationReader
-     * @param AnnotationCacheInterface $cache
+     * @var RequestStack
      */
+    protected $requestStack;
+
 	public function __construct(
-        EntityManager $em,
-        Container $container,
+        EntityManagerInterface $em,
+        ContainerInterface $container,
         EventDispatcherInterface $eventDispatcher,
         Reader $annotationReader,
-        AnnotationCacheInterface $cache
-    ) {
+        AnnotationCacheInterface $cache,
+        RequestStack $requestStack
+    )
+    {
 		$this->em = $em;
 		$this->container = $container;
 		$this->eventDispatcher = $eventDispatcher;
         $this->annotationReader = $annotationReader;
         $this->cache = $cache;
+        $this->requestStack = $requestStack;
 	}
 
     /**
@@ -97,8 +102,9 @@ class ModelFactory implements ModelFactoryInterface
 
         $modelClass = $annotation->getClass();
         $model = new $modelClass(
-            $this->container,
-            $this->em, 
+            $this->em,
+            $this->eventDispatcher,
+            $this->requestStack,
             $entityClass, 
             $annotation->getName(), 
             $scenarios,
@@ -163,17 +169,28 @@ class ModelFactory implements ModelFactoryInterface
     {
         $scenarios = $this->scenarios[$modelName];
 
-        foreach ($scenarios as $name => $serviceId) {
+        foreach ($scenarios as $name => $scenarioClass) {
 
-            /** @var Scenario $scenario */
-            $scenario = $this->container->get($serviceId);
+            /** @var BaseScenario $scenario */
+            $scenario = $this->container->get($scenarioClass);
             $scenario
                 ->setName($name)
                 ->setModelName($modelName)
-                ->setModelFactory($this)
             ;
 
-            $this->eventDispatcher->addSubscriber($scenario);
+            $reflection = new \ReflectionClass($scenarioClass);
+            $methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
+
+            foreach ($methods as $method) {
+                if ($method->class == $scenarioClass) {
+                    $action = ModelEvent::$methodMapping[$method->name];
+                    
+                    $this->eventDispatcher->addListener(
+                        Events::scenarioEventName($modelName, $name, $action),
+                        [$scenario, $method->name]
+                    );
+                }
+            }
         }
     }
 
@@ -185,6 +202,7 @@ class ModelFactory implements ModelFactoryInterface
     protected function getAnnotation($entityClass)
     {
         $annotation = $this->cache->getFromCache($entityClass);
+
         if (!$annotation) {
             $reflection = new \ReflectionClass($entityClass);
             
@@ -199,7 +217,7 @@ class ModelFactory implements ModelFactoryInterface
             }
             
             if (!$annotation->getName()) {
-                $annotation->setName($this->makeModelName($entityClass));
+                $annotation->setName($this->buildNameByClass($entityClass));
             }
             
             if (!$annotation->getClass()) {
@@ -216,48 +234,74 @@ class ModelFactory implements ModelFactoryInterface
      * @param $class
      * @return string
      */
-    protected function makeModelName($class)
+    protected function buildNameByClass($class)
     {
         $pos = strrpos($class, '\\') + 1;
         return strtolower(
             preg_replace('/([a-z])(?=[A-Z])/', '$1_', substr($class, $pos))
         );
     }
-    
+
     /**
-     * @param $name
-     * @param Behavior $behavior
+     * @param BehaviorInterface $behavior
+     * @return mixed|void
+     * @throws RuntimeException
      */
-	public function addBehavior($name, Behavior $behavior)
+	public function addBehavior(BehaviorInterface $behavior)
 	{
-        if (isset($this->behaviors[$name])) {
-            return;
+	    $reflection = new \ReflectionClass($behavior);
+
+	    /** @var Annotation\Behavior $annotation */
+	    $annotation = $this->annotationReader->getClassAnnotation(
+	        $reflection, Annotation\Behavior::class
+        );
+
+        if (!$annotation->getName()) {
+            $annotation->setName($this->buildNameByClass($reflection->name));
         }
+
+        $behavior->setName($annotation->getName());
         
-        $behavior->setName($name);
-        
-		$this->behaviors[$name] = $behavior;
-        $this->eventDispatcher->addSubscriber($behavior);
+        $reflection = new \ReflectionClass($behavior);
+        $methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
+
+        foreach ($methods as $method) {
+            if ($method->class == $reflection->name) {
+                $action = ModelEvent::$methodMapping[$method->name];
+                
+                $this->eventDispatcher->addListener(
+                    Events::behaviorEventName($behavior->getName(), $action),
+                    [$behavior, $method->name]
+                );
+            }
+        }
 	}
 
     /**
-     * @param string $modelName
-     * @param string $name
-     * @param string $serviceId
+     * @param $scenarioClass
+     * @return mixed|void
+     * @throws RuntimeException
      */
-	public function addScenario($modelName, $name, $serviceId)
+    public function addScenario($scenarioClass)
     {
-        if (!isset($this->scenarios[$modelName])) {
-            $this->scenarios[$modelName] = [];
+        $reflection = new \ReflectionClass($scenarioClass);
+
+        /** @var Annotation\Scenario $annotation */
+        $annotation = $this->annotationReader->getClassAnnotation(
+            $reflection,
+            Annotation\Scenario::class
+        );
+
+        if (!$annotation->getName()) {
+            $annotation->setName($this->buildNameByClass($scenarioClass));
         }
 
-		if (isset($this->scenarios[$modelName][$name])) {
-			return;
-		}
+        if (!$annotation->getModel()) {
+            throw new RuntimeException("Scenario $scenarioClass has to contain model attribute");
+        }
 
-        $this->scenarios[$modelName][$name] = $serviceId;
-	}
-
+        $this->scenarios[$annotation->getModel()][$annotation->getName()] = $scenarioClass;
+    }
 
     /**
      * @param $modelName
@@ -273,12 +317,11 @@ class ModelFactory implements ModelFactoryInterface
             return null;
         }
 
-        /** @var Scenario $scenario */
+        /** @var BaseScenario $scenario */
         $scenario = $this->container->get($this->scenarios[$modelName][$name]);
         $scenario
             ->setName($name)
             ->setModelName($modelName)
-            ->setModelFactory($this)
         ;
 
         return $scenario;

@@ -1,15 +1,17 @@
-parameters:
-    model.factory.class: Bezb\ModelBundle\Component\ModelFactory
 services:
-    model.factory:
-        class: Bezb\ModelBundle\Component\ModelFactory
-        arguments:
-            - "@doctrine.orm.entity_manager"
-            - "@service_container"
-            - "@event_dispatcher"
-            - "@annotation_reader"
-            - "@model.cache.file_cache"
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        public: false       # Allows optimizing the container by removing unused services; this also means
 
-    model.cache.file_cache:
-        class: Bezb\ModelBundle\Cache\FileCache
-        arguments: ["%kernel.cache_dir%/models", "%kernel.environment%"]
+        bind:
+            Bezb\ModelBundle\Cache\AnnotationCacheInterface: '@Bezb\ModelBundle\Cache\FileCache'
+
+    Bezb\ModelBundle\:
+        resource: '../../*'
+        exclude: '../../{Resources}'
+
+    Bezb\ModelBundle\Cache\FileCache:
+        arguments:
+            $cacheDir: '%kernel.cache_dir%/models'
+            $environment: '%kernel.environment%'

@@ -4,6 +4,10 @@ namespace Bezb\ModelBundle\Component;
 
 final class Events
 {
+    static public $methodMapping = [
+            
+    ];
+    
 	/**
 	 * @param $modelName
 	 * @param $scenario

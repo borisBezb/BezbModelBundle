@@ -4,6 +4,10 @@ namespace Bezb\ModelBundle\Cache;
 
 use Bezb\ModelBundle\Annotation;
 
+/**
+ * Class FileCache
+ * @package Bezb\ModelBundle\Cache
+ */
 class FileCache implements AnnotationCacheInterface
 {
     /**

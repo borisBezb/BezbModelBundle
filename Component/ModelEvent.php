@@ -2,8 +2,6 @@
 
 namespace Bezb\ModelBundle\Component;
 
-use Doctrine\ORM\EntityManager;
-use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\EventDispatcher\Event;
 
 class ModelEvent extends Event 
@@ -14,26 +12,26 @@ class ModelEvent extends Event
 	const BEFORE_DELETE = "before_delete";
 	const AFTER_DELETE = "after_delete";
 
+	static public $methodMapping = [
+	    'onBeforeSave'      => self::BEFORE_SAVE,
+        'onAfterSave'       => self::AFTER_SAVE,
+        'onAfterFind'       => self::AFTER_FIND,
+        'onBeforeDelete'    => self::BEFORE_DELETE,
+        'onAfterDelete'     => self::AFTER_DELETE
+    ];
+
 	/**
 	 * @var ModelInterface
 	 */
 	protected $model;
 
-	/**
-	 * @var \Symfony\Component\DependencyInjection\Container
-	 */
-	protected $container;
-
-	/**
-	 * @var \Doctrine\ORM\EntityManager
-	 */
-	protected $em;
-
-	public function __construct(Model $model, Container $container) 
+    /**
+     * ModelEvent constructor.
+     * @param Model $model
+     */
+	public function __construct(Model $model)
     {
 		$this->model = $model;
-		$this->container = $container;
-		$this->em = $this->container->get("doctrine")->getManager();
 	}
 
 	/**
@@ -42,21 +40,5 @@ class ModelEvent extends Event
 	public function getModel() 
     {
 		return $this->model;
-	}
-
-	/**
-	 * @return Container
-	 */
-	public function getContainer() 
-    {
-		return $this->container;
-	}
-
-	/**
-	 * @return EntityManager
-	 */
-	public function getManager() 
-    {
-		return $this->em;
 	}
 }

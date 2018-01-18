@@ -4,12 +4,16 @@ namespace Bezb\ModelBundle\Component;
 
 use Symfony\Component\Form\Form;
 
+/**
+ * Interface ModelInterface
+ * @package Bezb\ModelBundle\Component
+ */
 interface ModelInterface
 {
 	/**
 	 * @return string
 	 */
-	public function getModelName();
+	public function getName();
 
 	/**
 	 * @param $entity

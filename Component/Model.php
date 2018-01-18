@@ -2,34 +2,41 @@
 
 namespace Bezb\ModelBundle\Component;
 
-use Symfony\Component\DependencyInjection\Container;
+use Doctrine\ORM\{ EntityManagerInterface, EntityRepository };
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Form\Form;
-use Symfony\Component\HttpFoundation\Request;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\EntityRepository;
+use Symfony\Component\HttpFoundation\RequestStack;
 
+/**
+ * Class Model
+ * @package Bezb\ModelBundle\Component
+ */
 abstract class Model implements ModelInterface
 {
 	/**
 	 * @var string
 	 */
-	protected $modelName;
+	protected $name;
 
 	/**
-	 * @var EntityManager
+	 * @var EntityManagerInterface
 	 */
 	protected $em;
+
+    /**
+     * @var EventDispatcherInterface
+     */
+	protected $eventDispatcher;
+
+    /**
+     * @var RequestStack
+     */
+	protected $requestStack;
 
 	/**
 	 * @var EntityRepository
 	 */
 	protected $repository;
-
-	/**
-	 * @var Container
-	 */
-	protected $container;
 
 	/**
 	 * @var mixed
@@ -59,7 +66,12 @@ abstract class Model implements ModelInterface
 	/**
 	 * @var string
 	 */
-	protected $scenario = Scenario::CREATE;
+	protected $scenario = ScenarioInterface::CREATE;
+
+    /**
+     * @var array
+     */
+	protected $scenarioParameters = [];
 
 	/**
 	 * @var array
@@ -71,19 +83,31 @@ abstract class Model implements ModelInterface
      */
 	protected $behaviors;
 
-	/**
-	 * @param Container $container
-	 * @param EntityManager $em
-	 * @param $entityClass
-	 * @param $modelName
-	 * @param array $scenarios
-	 * @param array $behaviors
-	 */
-	public function __construct(Container $container, EntityManager $em, $entityClass, $modelName, $scenarios, $behaviors)
+    /**
+     * Model constructor.
+     * @param EntityManagerInterface $em
+     * @param EventDispatcherInterface $eventDispatcher
+     * @param RequestStack $requestStack
+     * @param $entityClass
+     * @param $name
+     * @param $scenarios
+     * @param $behaviors
+     */
+	public function __construct
+    (
+	     EntityManagerInterface $em,
+         EventDispatcherInterface $eventDispatcher,
+         RequestStack $requestStack,
+         $entityClass,
+         $name,
+         $scenarios,
+         $behaviors
+    )
 	{
-		$this->container = $container;
 		$this->em = $em;
-		$this->modelName = $modelName;
+		$this->eventDispatcher = $eventDispatcher;
+		$this->requestStack = $requestStack;
+		$this->name = $name;
 		$this->entityClass = $entityClass;
 		$this->scenarios = $scenarios;
         $this->behaviors = $behaviors;
@@ -94,18 +118,10 @@ abstract class Model implements ModelInterface
 	/**
 	 * @return string
 	 */
-	public function getModelName()
+	public function getName()
 	{
-		return $this->modelName;
+		return $this->name;
 	}
-
-    /**
-     * @return EntityManager
-     */
-    public function getEm()
-    {
-        return $this->em;
-    }
 
 	/**
 	 * @param $repository
@@ -156,15 +172,17 @@ abstract class Model implements ModelInterface
 
 	/**
 	 * @param $scenario
+     * @param array $parameters
 	 * @return $this
 	 */
-	public function setScenario($scenario)
+	public function setScenario($scenario, $parameters = [])
 	{
-		if(in_array($scenario, $this->scenarios) === false) {
-			//return false;
+		if (false === in_array($scenario, $this->scenarios)) {
+			return false;
 		}
 
 		$this->scenario = $scenario;
+		$this->scenarioParameters = $parameters;
 
 		return $this;
 	}
@@ -186,7 +204,7 @@ abstract class Model implements ModelInterface
 	{
 		$this->form = $form;
 
-		if($setData === true) {
+		if (true === $setData) {
 			$this->form->setData($this->getEntity());
 		}
 
@@ -208,9 +226,9 @@ abstract class Model implements ModelInterface
 	public function save($validate = true)
 	{
 
-		$success = (($validate === false) || ($validate === true && $this->validate() === true));
+		$success = (false === $validate) || (true === $this->validate());
 
-		if($success === true) {
+		if (true === $success) {
 			return $this->update();
 		}
 
@@ -222,14 +240,14 @@ abstract class Model implements ModelInterface
 	 */
 	public function validate()
 	{
-		if(!($this->form instanceof Form)) {
+		if (!($this->form instanceof Form)) {
 			return true;
 		}
 
-		if($this->formData !== null) {
+		if ($this->formData !== null) {
 			$this->form->submit($this->formData);
 		} else {
-			$this->form->handleRequest($this->getRequest());
+			$this->form->handleRequest($this->requestStack->getCurrentRequest());
 		}
 
 		return $this->form->isValid();
@@ -240,7 +258,7 @@ abstract class Model implements ModelInterface
 	 */
 	public function update()
 	{
-		if($this->beforeSave() === false) {
+		if ($this->beforeSave() === false) {
 			return false;
 		}
 
@@ -248,7 +266,7 @@ abstract class Model implements ModelInterface
 		$this->afterSave();
 		$this->setIsNew(false);
 
-		if($this->getScenario() == Scenario::CREATE) {
+		if ($this->getScenario() == Scenario::CREATE) {
 			$this->setScenario(Scenario::UPDATE);
 		}
 
@@ -260,7 +278,7 @@ abstract class Model implements ModelInterface
 	 */
 	public function refresh()
 	{
-		if($this->getIsNew() === false) {
+		if ($this->getIsNew() === false) {
 			$this->em->refresh($this->entity);
 		}
 
@@ -291,7 +309,7 @@ abstract class Model implements ModelInterface
 	{
 		$entity = $this->repository->findOneBy($fields);
 
-		if(!$entity) {
+		if (!$entity) {
 			return false;
 		}
 
@@ -299,7 +317,7 @@ abstract class Model implements ModelInterface
 		$this->setIsNew(false);
 		$this->setScenario(Scenario::UPDATE);
 
-		if($this->form instanceof Form) {
+		if ($this->form instanceof Form) {
 			$this->form->setData($entity);
 		}
 
@@ -317,21 +335,13 @@ abstract class Model implements ModelInterface
 		return $this->findBy(["id" => $id]);
 	}
 
-	/**
-	 * @return Request
-	 */
-	public function getRequest()
-	{
-		return $this->container->get("request_stack")->getCurrentRequest();
-	}
-
-	/**
-	 * @return EventDispatcherInterface
-	 */
-	public function getEventDispatcher()
-	{
-		return $this->container->get('event_dispatcher');
-	}
+    /**
+     * @return array
+     */
+	public function getScenarioParameters()
+    {
+        return $this->scenarioParameters;
+    }
 
 	/**
 	 * @param array $formData
@@ -356,7 +366,7 @@ abstract class Model implements ModelInterface
 
 	protected function saveAction()
 	{
-		if($this->getIsNew() === true) {
+		if ($this->getIsNew() === true) {
 			$this->em->persist($this->getEntity());
 		}
 
@@ -368,9 +378,7 @@ abstract class Model implements ModelInterface
 	 */
 	protected function beforeSave()
 	{
-		$eventName = Events::scenarioEventName($this->modelName, $this->scenario, ModelEvent::BEFORE_SAVE);
-		$this->getEventDispatcher()->dispatch($eventName, $this->createEvent());
-
+        $this->dispatchScenario(ModelEvent::BEFORE_SAVE);
         $this->dispatchBehaviors(ModelEvent::BEFORE_SAVE);
 
 		return true;
@@ -381,9 +389,7 @@ abstract class Model implements ModelInterface
 	 */
 	protected function afterSave()
 	{
-		$eventName = Events::scenarioEventName($this->modelName, $this->scenario, ModelEvent::AFTER_SAVE);
-		$this->getEventDispatcher()->dispatch($eventName, $this->createEvent());
-
+        $this->dispatchScenario(ModelEvent::AFTER_SAVE);
         $this->dispatchBehaviors(ModelEvent::AFTER_SAVE);
 
 		return true;
@@ -394,9 +400,7 @@ abstract class Model implements ModelInterface
 	 */
 	protected function afterFind()
 	{
-		$eventName = Events::scenarioEventName($this->modelName, $this->scenario, ModelEvent::AFTER_FIND);
-		$this->getEventDispatcher()->dispatch($eventName, $this->createEvent());
-
+        $this->dispatchScenario(ModelEvent::AFTER_FIND);
         $this->dispatchBehaviors(ModelEvent::AFTER_FIND);
 
 		return true;
@@ -407,9 +411,7 @@ abstract class Model implements ModelInterface
 	 */
 	protected function beforeDelete()
 	{
-		$eventName = Events::scenarioEventName($this->modelName, $this->scenario, ModelEvent::BEFORE_DELETE);
-		$this->getEventDispatcher()->dispatch($eventName, $this->createEvent());
-
+        $this->dispatchScenario(ModelEvent::BEFORE_DELETE);
         $this->dispatchBehaviors(ModelEvent::BEFORE_DELETE);
 
 		return true;
@@ -420,9 +422,7 @@ abstract class Model implements ModelInterface
 	 */
 	protected function afterDelete()
 	{
-		$eventName = Events::scenarioEventName($this->modelName, $this->scenario, ModelEvent::AFTER_DELETE);
-		$this->getEventDispatcher()->dispatch($eventName, $this->createEvent());
-
+		$this->dispatchScenario(ModelEvent::AFTER_DELETE);
         $this->dispatchBehaviors(ModelEvent::AFTER_DELETE);
 
 		return true;
@@ -431,11 +431,20 @@ abstract class Model implements ModelInterface
     /**
      * @param $action
      */
+	protected function dispatchScenario($action)
+    {
+        $eventName = Events::scenarioEventName($this->name, $this->scenario, $action);
+        $this->eventDispatcher->dispatch($eventName, $this->createEvent());
+    }
+
+    /**
+     * @param $action
+     */
     protected function dispatchBehaviors($action)
     {
         foreach ($this->behaviors as $name => $parameters) {
             $eventName = Events::behaviorEventName($name, $action);
-            $this->getEventDispatcher()->dispatch($eventName, $this->createBehaviorEvent($parameters));
+            $this->eventDispatcher->dispatch($eventName, $this->createBehaviorEvent($parameters));
         }
     }
 
@@ -444,7 +453,7 @@ abstract class Model implements ModelInterface
 	 */
 	protected function createEvent()
 	{
-		return new ModelEvent($this, $this->container);
+		return new ModelEvent($this);
 	}
 
     /**
@@ -453,7 +462,7 @@ abstract class Model implements ModelInterface
      */
     protected function createBehaviorEvent($parameters)
     {
-        $event = new BehaviorEvent($this, $this->container);
+        $event = new BehaviorEvent($this);
         $event->setParameters($parameters);
 
         return $event;
@@ -467,6 +476,7 @@ abstract class Model implements ModelInterface
     {
         $uow = $this->em->getUnitOfWork();
         $uow->computeChangeSets();
+
         return $uow->getEntityChangeSet($entity ?: $this->getEntity());
     }
 }

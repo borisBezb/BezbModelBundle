@@ -2,41 +2,30 @@
 
 namespace Bezb\ModelBundle\DependencyInjection;
 
+use Bezb\ModelBundle\Component\ModelFactory;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
-use Symfony\Component\DependencyInjection\Reference;
 use Bezb\ModelBundle\Exception\RuntimeException;
 
+/**
+ * Class ScenarioCompilerPass
+ * @package Bezb\ModelBundle\DependencyInjection
+ */
 class ScenarioCompilerPass implements CompilerPassInterface 
 {
-	public function process(ContainerBuilder $container) 
+    public function process(ContainerBuilder $container)
     {
-		$taggedServices = $container->findTaggedServiceIds('model.scenario');
+        $taggedServices = $container->findTaggedServiceIds('model.scenario');
 
-		foreach ($taggedServices as $serviceId => $tagAttributes) {
+        foreach ($taggedServices as $serviceId => $tagAttributes) {
 
-			if (isset($tagAttributes[0]) === false) {
-				continue;
-			}
+            if (false === $container->hasDefinition(ModelFactory::class) ) {
+                throw new RuntimeException("Could not find model.factory service");
+            }
 
-			$tagProperty = $tagAttributes[0];
-			if (! isset($tagProperty['model']) || ! isset($tagProperty['scenario']) ) {
-				continue;
-			}
-            
-			$factoryService = "model.factory";
-			if (false === $container->hasDefinition($factoryService) ) {
-				throw new RuntimeException("Could not find model.factory service");
-			}
-
-			$container->getDefinition($factoryService)->addMethodCall(
-				'addScenario',
-				[
-					$tagProperty['model'],
-					$tagProperty['scenario'],
-					$serviceId,
-				]
-			);
-		}
-	}
+            $container->getDefinition(ModelFactory::class)->addMethodCall(
+                'addScenario', [$serviceId]
+            );
+        }
+    }
 }
