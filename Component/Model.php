@@ -266,8 +266,8 @@ abstract class Model implements ModelInterface
 		$this->afterSave();
 		$this->setIsNew(false);
 
-		if ($this->getScenario() == BaseScenario::CREATE) {
-			$this->setScenario(BaseScenario::UPDATE);
+		if ($this->getScenario() == ScenarioInterface::CREATE) {
+			$this->setScenario(ScenarioInterface::UPDATE);
 		}
 
 		return true;
@@ -290,7 +290,7 @@ abstract class Model implements ModelInterface
 	 */
 	public function delete()
     {
-        $this->scenario = BaseScenario::DELETE;
+        $this->scenario = ScenarioInterface::DELETE;
 		$this->beforeDelete();
 
 		$this->em->remove($this->getEntity());
@@ -315,7 +315,7 @@ abstract class Model implements ModelInterface
 
 		$this->setEntity($entity);
 		$this->setIsNew(false);
-		$this->setScenario(BaseScenario::UPDATE);
+		$this->setScenario(ScenarioInterface::UPDATE);
 
 		if ($this->form instanceof Form) {
 			$this->form->setData($entity);
