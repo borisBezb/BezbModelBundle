@@ -182,7 +182,7 @@ class ModelFactory implements ModelFactoryInterface
             $methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
 
             foreach ($methods as $method) {
-                if ($method->class == $scenarioClass) {
+                if ($method->class == $scenarioClass  && array_key_exists($method->name, ModelEvent::$methodMapping)) {
                     $action = ModelEvent::$methodMapping[$method->name];
                     
                     $this->eventDispatcher->addListener(
@@ -266,7 +266,7 @@ class ModelFactory implements ModelFactoryInterface
         $methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
 
         foreach ($methods as $method) {
-            if ($method->class == $reflection->name) {
+            if ($method->class == $reflection->name && array_key_exists($method->name, ModelEvent::$methodMapping)) {
                 $action = ModelEvent::$methodMapping[$method->name];
                 
                 $this->eventDispatcher->addListener(
