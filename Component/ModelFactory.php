@@ -192,6 +192,8 @@ class ModelFactory implements ModelFactoryInterface
                 }
             }
         }
+	//mark scenarios for model as mounted
+        $this->mountedScenarios[$modelName] = true;
     }
 
     /**
