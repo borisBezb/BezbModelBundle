@@ -250,7 +250,7 @@ abstract class Model implements ModelInterface
 			$this->form->handleRequest($this->requestStack->getCurrentRequest());
 		}
 
-		return $this->form->isValid();
+		return $this->form->isSubmitted() && $this->form->isValid();
 	}
 
 	/**
