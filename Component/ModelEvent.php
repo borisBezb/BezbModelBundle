@@ -2,7 +2,7 @@
 
 namespace Bezb\ModelBundle\Component;
 
-use Symfony\Component\EventDispatcher\Event;
+use Symfony\Contracts\EventDispatcher\Event;
 
 class ModelEvent extends Event 
 {
