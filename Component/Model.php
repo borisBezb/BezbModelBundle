@@ -434,7 +434,7 @@ abstract class Model implements ModelInterface
 	protected function dispatchScenario($action)
     {
         $eventName = Events::scenarioEventName($this->name, $this->scenario, $action);
-        $this->eventDispatcher->dispatch($eventName, $this->createEvent());
+        $this->eventDispatcher->dispatch($this->createEvent(), $eventName);
     }
 
     /**
@@ -444,7 +444,7 @@ abstract class Model implements ModelInterface
     {
         foreach ($this->behaviors as $name => $parameters) {
             $eventName = Events::behaviorEventName($name, $action);
-            $this->eventDispatcher->dispatch($eventName, $this->createBehaviorEvent($parameters));
+            $this->eventDispatcher->dispatch($this->createBehaviorEvent($parameters), $eventName);
         }
     }
 
